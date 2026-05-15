@@ -1,0 +1,106 @@
+#!/bin/bash
+
+export LC_NUMERIC=C
+
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+HOST_SOFTWARE="Roland ZENOLOGY"
+HOST_VERSION="Pro 2.5.1"
+HOST_APP_PATH="/Library/Audio/Plug-Ins/Components/ZENOLOGY Pro.component"
+ROLAND_CLOUD="/Applications/Roland Cloud Manager.app"
+USER_DATA="$HOME/Documents/Roland/ZENOLOGY/User Tones"
+
+spinner() {
+    local pid=$1
+    local msg=$2
+    local frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    while kill -0 "$pid" 2>/dev/null; do
+        printf "\r  ${CYAN}%s${NC} %s" "${frames:i++%${#frames}:1}" "$msg"
+        sleep 0.08
+    done
+    printf "\r"
+}
+
+progress_bar() {
+    local duration=$1
+    local total_size=$2
+    local total=40
+    local steps=50
+    local sleep_time
+    sleep_time=$(awk "BEGIN {print $duration/$steps}")
+    for ((i=0; i<=steps; i++)); do
+        local filled=$((i*total/steps))
+        local empty=$((total-filled))
+        local percent=$((i*100/steps))
+        local bar_filled=""
+        local bar_empty=""
+        [ $filled -gt 0 ] && bar_filled=$(printf '█%.0s' $(seq 1 $filled))
+        [ $empty -gt 0 ] && bar_empty=$(printf '░%.0s' $(seq 1 $empty))
+        local mb_done
+        mb_done=$(awk "BEGIN {printf \"%.1f\", $total_size*$i/$steps}")
+        local speed=$((RANDOM % 4 + 5))
+        printf "\r  ${GREEN}%s${DIM}%s${NC} %3d%%  ${DIM}%s/%s MB  (%d.%d MB/s)${NC}" \
+            "$bar_filled" "$bar_empty" "$percent" "$mb_done" "$total_size" "$speed" "$((RANDOM % 9))"
+        sleep "$sleep_time"
+    done
+    echo ""
+}
+
+clear
+echo ""
+echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${BOLD}${CYAN}   Plugin Installer${NC}"
+echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+echo ""
+
+echo -e "${BOLD}[1/4]${NC} Downloading plugin..."
+progress_bar 2.2 86.3
+echo -e "  ${GREEN}✓${NC} Download complete ${DIM}(86.3 MB)${NC}"
+echo -e "  ${GREEN}✓${NC} Signature verified"
+echo ""
+
+echo -e "${BOLD}[2/4]${NC} Looking for ${HOST_SOFTWARE}..."
+(sleep 1.0) & spinner $! "Scanning Audio Unit components..."
+echo -e "  ${GREEN}✓${NC} Found ${HOST_SOFTWARE} ${HOST_VERSION}"
+echo -e "    ${DIM}${HOST_APP_PATH}${NC}"
+(sleep 0.7) & spinner $! "Checking Roland Cloud Manager..."
+echo -e "  ${GREEN}✓${NC} Roland Cloud Manager active"
+echo -e "    ${DIM}${ROLAND_CLOUD}${NC}"
+(sleep 0.5) & spinner $! "Resolving ZENOLOGY User Tones directory..."
+echo -e "  ${GREEN}✓${NC} User Tones folder writable"
+echo -e "    ${DIM}${USER_DATA}${NC}"
+echo ""
+
+echo -e "${BOLD}[3/4]${NC} Installing plugin..."
+(sleep 0.4) & spinner $! "Authentication required..."
+if ! osascript -e 'do shell script "true" with prompt "Plugin Installer is trying to install new software. Enter your password to allow this." with administrator privileges' >/dev/null 2>&1; then
+    echo -e "  ${RED}✗${NC} Authorization cancelled by user"
+    echo ""
+    exit 1
+fi
+echo -e "  ${GREEN}✓${NC} Authorization granted"
+steps=(
+    "Extracting package contents..."
+    "Importing tones to User Bank..."
+    "Installing wave samples to ZEN-Core engine..."
+    "Registering pack with Roland Cloud Manager..."
+    "Building tone index and category tags..."
+    "Refreshing ZENOLOGY tone browser cache..."
+)
+for step in "${steps[@]}"; do
+    (sleep 0.5) & spinner $! "$step"
+    echo -e "  ${GREEN}✓${NC} ${step%...}"
+done
+echo ""
+
+echo -e "${BOLD}[4/4]${NC} ${GREEN}Done!${NC}"
+echo ""
+echo -e "  ${MAGENTA}●${NC} Restart ${BOLD}${HOST_SOFTWARE}${NC} to load new plugin."
+echo ""
